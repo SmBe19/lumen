@@ -357,7 +357,7 @@ def parse_student_csv(text: str) -> list[dict[str, str]]:
     case insensitive. A :class:`ValueError` is raised when no valid column
     is found instead of guessing.
     """
-    text = (text or "").strip()
+    text = (text or "").strip().strip("\ufeff")
     if not text:
         return []
 
@@ -431,6 +431,8 @@ def add_students(exam: dict[str, Any], new_students: list[dict[str, str]]) -> in
         exam.setdefault("students", []).append(entry)
         existing_names.add(name)
         added += 1
+    if added > 0:
+        exam["students"].sort(key=lambda s: s["name"].lower())
     return added
 
 

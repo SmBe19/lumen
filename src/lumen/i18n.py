@@ -70,7 +70,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "student.name_placeholder": "-- Namen auswählen --",
         "student.continue": "Weiter",
         "student.notify_explanation": "Ihr Browser fragt Sie jetzt nach der Erlaubnis, Benachrichtigungen anzuzeigen. So können wir Sie sofort warnen, wenn die Bildschirmfreigabe während der Aufnahme stoppt.",
-        "student.step2_heading": "2. Ganzes Bildschirm teilen",
+        "student.step2_heading": "2. Ganzen Bildschirm teilen",
         "student.step2_body": "Sie müssen Ihren gesamten Bildschirm teilen. Das Teilen eines einzelnen Fensters oder Browser-Tabs wird nicht akzeptiert.",
         "student.step2_disclaimer": "Die Bildschirmaufnahme wird gespeichert und aufbewahrt, bis die Prüfung korrigiert und der Klasse zurückgegeben wurde. Danach werden die Aufnahmen gelöscht.",
         "student.start_sharing": "Bildschirmfreigabe starten",

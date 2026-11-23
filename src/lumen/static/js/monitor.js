@@ -193,7 +193,7 @@
       // Only notify for issues that arrive while recording is active, and
       // only once per issue (not again every time the page is opened).
       if (primed && recording) {
-        notify("Lumen: " + issue.dir, label + (issue.message ? ": " + issue.message : ""));
+        notify("Lumen", issue.dir + " " + label + (issue.message ? ": " + issue.message : ""));
       }
     });
   }
