@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ exam.name }} - monitor{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('teacher.exam_config', exam_id=exam.id) }}">&larr; Configure {{ exam.name }}</a></p>
+<h1>Monitoring: {{ exam.name }}</h1>
+
+<div
+  id="monitor"
+  data-exam-id="{{ exam.id }}"
+  data-exam-key="{{ exam.exam_key }}"
+  data-refresh="5000">
+  <div class="toolbar">
+    <span>State: <strong id="recording-state">…</strong></span>
+    <span class="muted">Interval: <span id="interval">…</span></span>
+    <button id="enable-notifications" type="button">Enable notifications</button>
+    <a class="button" href="{{ url_for('teacher.download_all', exam_id=exam.id) }}">Download all (ZIP)</a>
+    <span class="muted" id="updated"></span>
+  </div>
+
+  <div id="warnings"></div>
+
+  <h2>Students not sharing (<span id="inactive-count">0</span>)</h2>
+  <p id="inactive-list" class="muted">-</p>
+
+  <h2>Current screens</h2>
+  <div id="grid" class="grid"></div>
+
+  <h2>Issues</h2>
+  <ul id="issues" class="log"><li class="muted">None.</li></ul>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/monitor.js') }}"></script>
+{% endblock %}

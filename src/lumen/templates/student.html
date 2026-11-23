@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Join {{ exam.name }}{% endblock %}
+{% block content %}
+<h1>{{ exam.name }}</h1>
+
+<div id="student-app"
+     data-exam-key="{{ exam.exam_key }}"
+     data-exam-name="{{ exam.name }}"
+     data-interval="{{ exam.interval }}"
+     data-scale="{{ exam.scale }}"
+     data-recording="{{ 'true' if exam.recording else 'false' }}">
+
+  <div class="step" id="step-name">
+    <h2>1. Choose your name</h2>
+    {% if exam.students %}
+      <div class="field">
+        <label for="student-name">Name</label>
+        <select id="student-name">
+          <option value="">-- select your name --</option>
+          {% for student in exam.students %}
+            <option value="{{ student.name }}">{{ student.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="primary" id="confirm-name" type="button">Continue</button>
+    {% else %}
+      <p class="error-text">No students have been added to this exam yet. Ask your teacher.</p>
+    {% endif %}
+  </div>
+
+  <div class="step disabled" id="step-share">
+    <h2>2. Share your whole screen</h2>
+    <p>You must share your <strong>entire screen</strong>. Sharing a single window or browser tab is not accepted.</p>
+    <button class="primary" id="start-share" type="button" disabled>Start screen sharing</button>
+    <button id="stop-share" type="button" disabled>Stop</button>
+  </div>
+
+  <div class="step disabled" id="step-status">
+    <h2>3. Recording</h2>
+    <p id="recording-status" class="muted">Not sharing.</p>
+    <p class="muted">Last upload: <span id="last-upload">never</span> · Next in <span id="next-upload">-</span></p>
+    <video id="preview" autoplay muted playsinline></video>
+  </div>
+
+  <div id="student-messages"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/student.js') }}"></script>
+{% endblock %}

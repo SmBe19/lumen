@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{{ exam.name }} - configure{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('teacher.exams') }}">&larr; All exams</a></p>
+<h1>{{ exam.name }}</h1>
+
+<div class="toolbar">
+  <a class="button" href="{{ url_for('teacher.monitor', exam_id=exam.id) }}">Monitor</a>
+  <a class="button" href="{{ url_for('public.exam', exam_key=exam.exam_key) }}" target="_blank">Student view</a>
+  <a class="button" href="{{ url_for('teacher.download_all', exam_id=exam.id) }}">Download all screenshots (ZIP)</a>
+</div>
+
+<h2>Recording</h2>
+<div class="notice {% if exam.recording %}ok-text{% else %}muted{% endif %}">
+  Current state:
+  {% if exam.recording %}<strong>recording</strong>{% else %}<strong>stopped</strong>{% endif %}
+</div>
+<div class="toolbar">
+  <form class="inline" method="post" action="{{ url_for('teacher.set_recording', exam_id=exam.id) }}">
+    <input type="hidden" name="action" value="start">
+    <input type="hidden" name="next" value="{{ url_for('teacher.exam_config', exam_id=exam.id) }}">
+    <button class="primary" type="submit" {% if exam.recording %}disabled{% endif %}>Start recording</button>
+  </form>
+  <form class="inline" method="post" action="{{ url_for('teacher.set_recording', exam_id=exam.id) }}">
+    <input type="hidden" name="action" value="stop">
+    <input type="hidden" name="next" value="{{ url_for('teacher.exam_config', exam_id=exam.id) }}">
+    <button type="submit" {% if not exam.recording %}disabled{% endif %}>Stop recording</button>
+  </form>
+</div>
+
+<h2>Configuration</h2>
+<form method="post" action="{{ url_for('teacher.update_config', exam_id=exam.id) }}">
+  <div class="field">
+    <label for="name">Name</label>
+    <input id="name" name="name" type="text" value="{{ exam.name }}" required>
+  </div>
+  <div class="field">
+    <label for="exam_key">Exam key</label>
+    <input id="exam_key" name="exam_key" type="text" value="{{ exam.exam_key }}" autocomplete="off" required>
+    <div class="hint">Students use this key to join. Must be unique.</div>
+  </div>
+  <div class="field">
+    <label for="interval">Screenshot interval (seconds)</label>
+    <input id="interval" name="interval" type="number" min="1" value="{{ exam.interval }}">
+    <div class="hint">Can be changed while recording. Students pick it up on their next poll.</div>
+  </div>
+  <div class="field">
+    <label for="scale">Scale (0.01 - 1.00)</label>
+    <input id="scale" name="scale" type="number" min="0.01" max="1" step="0.01" value="{{ exam.scale }}">
+    <div class="hint">Scaling is done in the student's browser to save bandwidth.</div>
+  </div>
+  <button class="primary" type="submit">Save configuration</button>
+</form>
+
+<h2 id="students">Students ({{ exam.students|length }})</h2>
+<form method="post" action="{{ url_for('teacher.import_students', exam_id=exam.id) }}">
+  <div class="field">
+    <label for="csv">Import from CSV (paste)</label>
+    <textarea id="csv" name="csv" placeholder="firstname,lastname,displayname,class&#10;Jane,Doe,,1a&#10;John,,jd,1b"></textarea>
+    <div class="hint">Columns: firstname, lastname, displayname, class. At least one name column is required.</div>
+  </div>
+  <button class="primary" type="submit">Import students</button>
+</form>
+
+{% if exam.students %}
+<div class="toolbar">
+  <form class="inline" method="post" action="{{ url_for('teacher.clear_students', exam_id=exam.id) }}"
+        onsubmit="return confirm('Remove all students from this exam?');">
+    <button class="danger" type="submit">Clear student list</button>
+  </form>
+</div>
+<table>
+  <thead>
+    <tr><th>Name</th><th>Directory</th><th>Screenshots</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for student in exam.students %}
+    <tr>
+      <td>{{ student.name }}</td>
+      <td><code>{{ student.dir }}</code></td>
+      <td>
+        <a href="{{ url_for('teacher.student_detail', exam_id=exam.id, dirname=student.dir) }}">View</a>
+      </td>
+      <td>
+        <a href="{{ url_for('teacher.download_student', exam_id=exam.id, dirname=student.dir) }}">ZIP</a>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No students imported yet.</p>
+{% endif %}
+
+<h2>Danger zone</h2>
+<form method="post" action="{{ url_for('teacher.delete_exam', exam_id=exam.id) }}"
+      onsubmit="return confirm('Delete this exam and all of its screenshots? This cannot be undone.');">
+  <button class="danger" type="submit">Delete exam</button>
+</form>
+{% endblock %}

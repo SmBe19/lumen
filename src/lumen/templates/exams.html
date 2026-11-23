@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Exams{% endblock %}
+{% block content %}
+<h1>Exams</h1>
+
+{% if exams %}
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Key</th>
+      <th>Interval</th>
+      <th>Scale</th>
+      <th>Students</th>
+      <th>State</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for exam in exams %}
+    <tr>
+      <td>{{ exam.name }}</td>
+      <td><code>{{ exam.exam_key }}</code></td>
+      <td>{{ exam.interval|duration }}</td>
+      <td>{{ exam.scale }}</td>
+      <td>{{ exam.students|length }}</td>
+      <td>
+        {% if exam.recording %}
+          <span class="ok-text">recording</span>
+        {% else %}
+          <span class="muted">stopped</span>
+        {% endif %}
+      </td>
+      <td>
+        <a href="{{ url_for('teacher.exam_config', exam_id=exam.id) }}">Configure</a> ·
+        <a href="{{ url_for('teacher.monitor', exam_id=exam.id) }}">Monitor</a> ·
+        <form class="inline" method="post" action="{{ url_for('teacher.delete_exam', exam_id=exam.id) }}"
+              onsubmit="return confirm('Delete this exam and all of its screenshots?');">
+          <button class="danger" type="submit">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No exams yet. Create one below.</p>
+{% endif %}
+
+<h2>Create exam</h2>
+<form method="post" action="{{ url_for('teacher.create_exam') }}">
+  <div class="field">
+    <label for="name">Name</label>
+    <input id="name" name="name" type="text" required>
+  </div>
+  <div class="field">
+    <label for="exam_key">Exam key</label>
+    <input id="exam_key" name="exam_key" type="text" placeholder="leave blank to generate" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="interval">Screenshot interval (seconds)</label>
+    <input id="interval" name="interval" type="number" min="1" value="30">
+  </div>
+  <div class="field">
+    <label for="scale">Scale (0.01 - 1.00)</label>
+    <input id="scale" name="scale" type="number" min="0.01" max="1" step="0.01" value="0.5">
+  </div>
+  <button class="primary" type="submit">Create exam</button>
+</form>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Lumen - join an exam{% endblock %}
+{% block content %}
+<h1>Screen monitoring for exams</h1>
+
+<div class="step">
+  <h2>Students</h2>
+  <p>Enter the exam key you received from your teacher.</p>
+  <form method="post" action="{{ url_for('public.join') }}">
+    <div class="field">
+      <label for="exam_key">Exam key</label>
+      <input id="exam_key" name="exam_key" type="text" autocomplete="off" required autofocus>
+    </div>
+    <button class="primary" type="submit">Join exam</button>
+  </form>
+</div>
+
+<div class="step">
+  <h2>Teachers</h2>
+  <p><a href="{{ url_for('auth.login') }}">Log in</a> to create and monitor exams.</p>
+</div>
+{% endblock %}

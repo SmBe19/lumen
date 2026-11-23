@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ student.name }} - {{ exam.name }}{% endblock %}
+{% block content %}
+<p>
+  <a href="{{ url_for('teacher.monitor', exam_id=exam.id) }}">&larr; Monitoring</a> ·
+  <a href="{{ url_for('teacher.exam_config', exam_id=exam.id) }}">Configure</a>
+</p>
+<h1>{{ student.name }}</h1>
+<p class="muted">Directory: <code>{{ student.dir }}</code> · {{ screenshots|length }} screenshot(s)</p>
+
+<div class="toolbar">
+  <a class="button" href="{{ url_for('teacher.download_student', exam_id=exam.id, dirname=student.dir) }}">Download screenshots (ZIP)</a>
+</div>
+
+<h2>Screenshots</h2>
+{% if screenshots %}
+<div class="gallery">
+  {% for shot in screenshots %}
+    <figure>
+      <a href="{{ url_for('teacher.screenshot_image', exam_id=exam.id, dirname=student.dir, filename=shot.filename) }}" target="_blank">
+        <img src="{{ url_for('teacher.screenshot_image', exam_id=exam.id, dirname=student.dir, filename=shot.filename) }}"
+             alt="Screenshot from {{ shot.captured|dt }}" loading="lazy">
+      </a>
+      <figcaption>{{ shot.captured|dt }} · {{ shot.size|filesize }}</figcaption>
+    </figure>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted">No screenshots yet.</p>
+{% endif %}
+
+<h2>Log</h2>
+<form method="post" action="{{ url_for('teacher.add_student_log', exam_id=exam.id, dirname=student.dir) }}">
+  <div class="field">
+    <label for="message">Add log entry</label>
+    <input id="message" name="message" type="text" placeholder="e.g. looked away for a long time" required>
+  </div>
+  <button class="primary" type="submit">Add entry</button>
+</form>
+
+{% if logs %}
+<ul class="log">
+  {% for entry in logs %}
+    <li>
+      <span class="muted">{{ entry.ts|dt }}</span>
+      · <strong>{{ entry.event }}</strong>
+      <span class="muted">({{ entry.source }})</span>
+      {% if entry.message %} - {{ entry.message }}{% endif %}
+    </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No log entries.</p>
+{% endif %}
+{% endblock %}
