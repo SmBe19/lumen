@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Unknown exam{% endblock %}
+{% block title %}{{ t('not_found.title') }}{% endblock %}
 {% block content %}
-<h1>Unknown exam key</h1>
-<p>The exam key <strong>{{ exam_key }}</strong> does not match any exam.</p>
-<p><a href="{{ url_for('public.index') }}">Back to start</a></p>
+<h1>{{ t('not_found.heading') }}</h1>
+<p>{{ t('not_found.body') }}</p>
+<p><code>{{ exam_key }}</code></p>
+<p><a href="{{ url_for('public.index') }}">{{ t('not_found.back') }}</a></p>
 {% endblock %}

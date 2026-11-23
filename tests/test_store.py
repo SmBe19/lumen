@@ -3,9 +3,10 @@
 from lumen import store
 
 
-def test_clean_dirname_removes_unsafe_characters():
-    assert store.clean_dirname("Jane Doe (1a)") == "Jane Doe 1a"
-    assert store.clean_dirname("../../etc/passwd") == "etc passwd"
+def test_clean_dirname_removes_unsafe_characters_and_spaces():
+    assert store.clean_dirname("Jane Doe (1a)") == "Jane_Doe_1a"
+    assert " " not in store.clean_dirname("Jane Doe (1a)")
+    assert store.clean_dirname("../../etc/passwd") == "etc_passwd"
     assert store.clean_dirname("") == "student"
 
 
@@ -28,6 +29,23 @@ def test_parse_student_csv_without_header_and_column_order():
     students = store.parse_student_csv("class,lastname,firstname\n1a,Doe,Jane\n")
     names = [s["name"] for s in students]
     assert names == ["Jane Doe (1a)"]
+
+
+def test_parse_student_csv_accepts_alternative_column_names():
+    students = store.parse_student_csv(
+        "Vorname,NAME,KLASSE\nJane,Doe,1a\nJohn,Smith,1b\n"
+    )
+    assert [s["name"] for s in students] == [
+        "Jane Doe (1a)",
+        "John Smith (1b)",
+    ]
+
+
+def test_parse_student_csv_without_valid_columns_raises():
+    import pytest
+
+    with pytest.raises(ValueError):
+        store.parse_student_csv("Jane,Doe\nJohn,Smith\n")
 
 
 def test_parse_student_csv_lastname_only():

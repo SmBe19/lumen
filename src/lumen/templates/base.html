@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ lang|default('en') }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -20,7 +20,7 @@
       <span class="muted">{{ g.teacher }}</span>
       <a href="{{ url_for('auth.logout') }}">Log out</a>
     {% else %}
-      <a href="{{ url_for('auth.login') }}">Teacher login</a>
+      <a href="{{ url_for('auth.login') }}">{{ t('base.teacher_login') }}</a>
     {% endif %}
   </header>
   <main>

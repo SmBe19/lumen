@@ -12,6 +12,14 @@
   <div class="toolbar">
     <span>State: <strong id="recording-state">…</strong></span>
     <span class="muted">Interval: <span id="interval">…</span></span>
+    <form class="inline" method="post" action="{{ url_for('teacher.set_recording', exam_id=exam.id) }}">
+      <input type="hidden" name="next" value="{{ url_for('teacher.monitor', exam_id=exam.id) }}">
+      {% if exam.recording %}
+        <button class="danger" type="submit" name="action" value="stop">Stop recording</button>
+      {% else %}
+        <button class="primary" type="submit" name="action" value="start">Start recording</button>
+      {% endif %}
+    </form>
     <button id="enable-notifications" type="button">Enable notifications</button>
     <a class="button" href="{{ url_for('teacher.download_all', exam_id=exam.id) }}">Download all (ZIP)</a>
     <span class="muted" id="updated"></span>
@@ -27,6 +35,10 @@
 
   <h2>Issues</h2>
   <ul id="issues" class="log"><li class="muted">None.</li></ul>
+</div>
+
+<div id="overlay" class="overlay hidden">
+  <img id="overlay-image" alt="Screenshot">
 </div>
 {% endblock %}
 {% block scripts %}

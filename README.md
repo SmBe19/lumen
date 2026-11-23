@@ -38,6 +38,13 @@ uv run lumen --host 0.0.0.0 --port 5000
 
 Then open <http://localhost:5000/>.
 
+For production (e.g. on a Herokuish based platform) a `Procfile` is included
+that starts the app with [gunicorn](https://gunicorn.org/):
+
+```
+web: gunicorn --bind 0.0.0.0:$PORT 'lumen.app:create_app()'
+```
+
 Remember that browsers only allow `getDisplayMedia` in a secure context, so in
 production serve Lumen over HTTPS (or use `localhost` for testing).
 
@@ -48,9 +55,11 @@ production serve Lumen over HTTPS (or use `localhost` for testing).
 1. Log in at `/login`.
 2. Create an exam on the *Exams* page. You can set the exam key, the screenshot
    interval and the scale (0.01 – 1.00).
-3. Import students by pasting CSV with the columns `firstname`, `lastname`,
-   `displayname`, `class` (any order, all optional as long as one name column
-   is set). The display name is chosen in this order:
+3. Import students by pasting CSV with a header row using the columns
+   `firstname` (or `vorname`), `lastname` (or `name`), `displayname` and
+   `class` (or `klasse`, `kl`) in any order. Matching is case insensitive and
+   at least one name column is required; otherwise the import reports an
+   error. The display name is chosen in this order:
    `displayname`, `firstname lastname`, `firstname`, `lastname`, with
    ` (class)` appended when a class is given.
 4. Press **Start recording**. Students may join at any time; screenshots are
@@ -59,9 +68,11 @@ production serve Lumen over HTTPS (or use `localhost` for testing).
    per student, students who stopped sharing (no screenshot within four
    intervals), and warnings when a name seems to be used by more than one
    machine.
-6. Click a student to browse all historical screenshots and the per-student
-   log, add manual log entries, or download a ZIP. The whole exam can be
-   downloaded as a ZIP from the config or monitor page.
+6. Click a student name to browse all historical screenshots and the
+   per-student log, add manual log entries, delete the student, or download a
+   ZIP (which also contains the `jsonl` log). The whole exam can be downloaded
+   as a ZIP from the config or monitor page. Recording can also be started and
+   stopped directly from the monitor page.
 
 ### Student
 
@@ -85,7 +96,7 @@ data/
     <exam id>/
       config.json             # key, interval, scale, recording, students
       screenshots/
-        <cleaned name>/<epoch_ms>_<token>.png
+        <cleaned name with _ instead of spaces>/<epoch_ms>_<token>.png
       logs/
         <cleaned name>.jsonl
 ```

@@ -29,7 +29,7 @@ def exam_config(exam_key: str):
         {
             "status": "ok",
             "recording": bool(exam.get("recording")),
-            "interval": exam.get("interval", 30),
+            "interval": exam.get("interval", 10),
             "scale": exam.get("scale", 0.5),
             "exam_name": exam.get("name", ""),
             "students": [s["name"] for s in exam.get("students", [])],

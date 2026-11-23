@@ -30,12 +30,17 @@ def configure_data_dir(path: str | os.PathLike[str]) -> None:
     global DATA_DIR
     DATA_DIR = Path(path).resolve()
     invalidate_cache()
+    with _cache_lock:
+        _key_cache.clear()
 
 
 _CONFIG_CACHE_TTL = 30.0  # seconds
 
 # exam_id -> (config, loaded_at)
 _config_cache: dict[str, tuple[dict[str, Any], float]] = {}
+# exam_key (upper) -> exam_id, rebuilt at most every _CONFIG_CACHE_TTL seconds.
+_key_cache: dict[str, str] = {}
+_key_cache_loaded_at = 0.0
 _cache_lock = threading.Lock()
 
 _KEY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -125,11 +130,14 @@ def _read_config(path: Path) -> dict[str, Any] | None:
 
 
 def invalidate_cache(exam_id: str | None = None) -> None:
+    global _key_cache_loaded_at
     with _cache_lock:
         if exam_id is None:
             _config_cache.clear()
         else:
             _config_cache.pop(exam_id, None)
+        # Force the exam-key index to be rebuilt on the next lookup.
+        _key_cache_loaded_at = 0.0
 
 
 def get_exam(exam_id: str, force: bool = False) -> dict[str, Any] | None:
@@ -147,20 +155,46 @@ def get_exam(exam_id: str, force: bool = False) -> dict[str, Any] | None:
     return config
 
 
-def get_exam_by_key(exam_key: str) -> dict[str, Any] | None:
-    exam_key = (exam_key or "").strip()
-    if not exam_key:
-        return None
+def _rebuild_key_cache() -> None:
+    """Rebuild the ``exam_key -> exam_id`` index from disk."""
+    global _key_cache_loaded_at
     ensure_dirs()
+    mapping: dict[str, str] = {}
     for entry in sorted(exams_dir().iterdir()):
         if not entry.is_dir():
             continue
         config = get_exam(entry.name)
-        if config and secrets.compare_digest(
-            str(config.get("exam_key", "")), exam_key
-        ):
-            return config
-    return None
+        if not config:
+            continue
+        key = str(config.get("exam_key", "")).upper()
+        if key:
+            mapping[key] = config["id"]
+    with _cache_lock:
+        _key_cache.clear()
+        _key_cache.update(mapping)
+        _key_cache_loaded_at = time.time()
+
+
+def get_exam_by_key(exam_key: str) -> dict[str, Any] | None:
+    """Look up an exam by its key, using an in-memory index.
+
+    The index is rebuilt from disk at most every ``_CONFIG_CACHE_TTL``
+    seconds so that regular student requests never touch the disk for
+    unrelated exams.
+    """
+    exam_key = (exam_key or "").strip().upper()
+    if not exam_key:
+        return None
+    with _cache_lock:
+        exam_id = _key_cache.get(exam_key)
+        fresh = (time.time() - _key_cache_loaded_at) < _CONFIG_CACHE_TTL
+    if not fresh:
+        _rebuild_key_cache()
+        with _cache_lock:
+            exam_id = _key_cache.get(exam_key)
+    if exam_id is None:
+        return None
+    return get_exam(exam_id)
 
 
 def list_exams(
@@ -205,7 +239,7 @@ def create_exam(
     name: str,
     owner: str,
     exam_key: str | None = None,
-    interval: int = 30,
+    interval: int = 10,
     scale: float = 0.5,
 ) -> dict[str, Any]:
     ensure_dirs()
@@ -249,11 +283,16 @@ def delete_exam(exam_id: str) -> None:
 # Student names / directories
 # ---------------------------------------------------------------------------
 def clean_dirname(display_name: str) -> str:
-    """Turn a display name into a safe directory name."""
+    """Turn a display name into a safe directory name.
+
+    Whitespace is replaced by underscores so directory names never contain
+    spaces.
+    """
     cleaned = display_name.replace("(", " ").replace(")", " ")
     cleaned = _CLEAN_RE.sub("_", cleaned)
     cleaned = cleaned.replace("..", "_")
-    cleaned = re.sub(r"[_\s]+", " ", cleaned).strip(" ._")
+    cleaned = re.sub(r"\s+", "_", cleaned)
+    cleaned = re.sub(r"_+", "_", cleaned).strip("._")
     if not cleaned:
         cleaned = "student"
     return cleaned[:120]
@@ -296,12 +335,27 @@ def display_name_for_row(row: dict[str, str]) -> str | None:
     return name
 
 
+# Canonical column name -> accepted header spellings (all case insensitive).
+_COLUMN_ALIASES = {
+    "firstname": "firstname",
+    "vorname": "firstname",
+    "lastname": "lastname",
+    "name": "lastname",
+    "displayname": "displayname",
+    "class": "class",
+    "klasse": "class",
+    "kl": "class",
+}
+
+
 def parse_student_csv(text: str) -> list[dict[str, str]]:
     """Parse pasted CSV content into a list of student entries.
 
-    The CSV may contain the columns ``firstname``, ``lastname``,
-    ``displayname`` and ``class`` in any order. A header row is detected when
-    any of those column names is present.
+    The CSV must contain a header row with at least one of the supported
+    columns (``firstname``/``vorname``, ``lastname``/``name``,
+    ``displayname``, ``class``/``klasse``/``kl``), in any order. Matching is
+    case insensitive. A :class:`ValueError` is raised when no valid column
+    is found instead of guessing.
     """
     text = (text or "").strip()
     if not text:
@@ -312,28 +366,43 @@ def parse_student_csv(text: str) -> list[dict[str, str]]:
     if not rows:
         return []
 
-    known = {"firstname", "lastname", "displayname", "class"}
-    first_cells = [cell.strip().lower() for cell in rows[0]]
-    has_header = any(cell in known for cell in first_cells)
-
-    if has_header:
-        fieldnames = first_cells
-        data_rows = rows[1:]
-    else:
-        # Without a header assume firstname,lastname,displayname,class
-        fieldnames = ["firstname", "lastname", "displayname", "class"]
-        data_rows = rows
+    fieldnames = [
+        _COLUMN_ALIASES.get(cell.strip().lower()) for cell in rows[0]
+    ]
+    if not any(fieldnames):
+        raise ValueError(
+            "No valid columns found. The first row must contain at least one "
+            "of: firstname/vorname, lastname/name, displayname, "
+            "class/klasse/kl."
+        )
 
     students: list[dict[str, str]] = []
-    for row in data_rows:
+    for row in rows[1:]:
         record: dict[str, str] = {}
         for index, field in enumerate(fieldnames):
-            if field in known:
+            if field:
                 record[field] = row[index].strip() if index < len(row) else ""
         name = display_name_for_row(record)
         if name:
             students.append({"name": name})
     return students
+
+
+def remove_student(exam: dict[str, Any], dirname: str) -> dict[str, Any] | None:
+    """Remove a single student and delete their stored data."""
+    students = exam.get("students", [])
+    for index, student in enumerate(students):
+        if student["dir"] != dirname:
+            continue
+        del students[index]
+        directory = screenshot_dir(exam["id"], dirname)
+        if directory.is_dir():
+            shutil.rmtree(directory)
+        log = log_path(exam["id"], dirname)
+        if log.exists():
+            log.unlink()
+        return student
+    return None
 
 
 def add_students(exam: dict[str, Any], new_students: list[dict[str, str]]) -> int:
@@ -477,7 +546,7 @@ def read_recent_issues(exam_id: str, since: float = 0.0) -> list[dict[str, Any]]
     for path in directory.glob("*.jsonl"):
         dirname = path.stem
         for entry in read_logs(exam_id, dirname):
-            if entry.get("event") in ("stop_sharing", "error") and entry.get(
+            if entry.get("event") in ("stop_sharing", "error", "note") and entry.get(
                 "ts", 0
             ) >= since:
                 entry = dict(entry)

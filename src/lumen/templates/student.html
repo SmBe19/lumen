@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Join {{ exam.name }}{% endblock %}
+{% block title %}{{ t('student.title_recording') if exam.recording else t('student.title_not_recording') }}{% endblock %}
 {% block content %}
 <h1>{{ exam.name }}</h1>
 
@@ -8,43 +8,48 @@
      data-exam-name="{{ exam.name }}"
      data-interval="{{ exam.interval }}"
      data-scale="{{ exam.scale }}"
+     data-lang="{{ lang }}"
      data-recording="{{ 'true' if exam.recording else 'false' }}">
 
   <div class="step" id="step-name">
-    <h2>1. Choose your name</h2>
+    <h2>{{ t('student.step1_heading') }}</h2>
     {% if exam.students %}
       <div class="field">
-        <label for="student-name">Name</label>
+        <label for="student-name">{{ t('student.name_label') }}</label>
         <select id="student-name">
-          <option value="">-- select your name --</option>
+          <option value="">{{ t('student.name_placeholder') }}</option>
           {% for student in exam.students %}
             <option value="{{ student.name }}">{{ student.name }}</option>
           {% endfor %}
         </select>
       </div>
-      <button class="primary" id="confirm-name" type="button">Continue</button>
+      <button class="primary" id="confirm-name" type="button">{{ t('student.continue') }}</button>
+      <p class="hint muted">{{ t('student.notify_explanation') }}</p>
     {% else %}
-      <p class="error-text">No students have been added to this exam yet. Ask your teacher.</p>
+      <p class="error-text">{{ t('student.no_students') }}</p>
     {% endif %}
   </div>
 
-  <div class="step disabled" id="step-share">
-    <h2>2. Share your whole screen</h2>
-    <p>You must share your <strong>entire screen</strong>. Sharing a single window or browser tab is not accepted.</p>
-    <button class="primary" id="start-share" type="button" disabled>Start screen sharing</button>
-    <button id="stop-share" type="button" disabled>Stop</button>
+  <div class="step hidden" id="step-share">
+    <h2>{{ t('student.step2_heading') }}</h2>
+    <p>{{ t('student.step2_body') }}</p>
+    <p class="muted">{{ t('student.step2_disclaimer') }}</p>
+    <button class="primary" id="start-share" type="button">{{ t('student.start_sharing') }}</button>
   </div>
 
-  <div class="step disabled" id="step-status">
-    <h2>3. Recording</h2>
-    <p id="recording-status" class="muted">Not sharing.</p>
-    <p class="muted">Last upload: <span id="last-upload">never</span> · Next in <span id="next-upload">-</span></p>
+  <div class="step hidden" id="step-status">
+    <h2>{{ t('student.step3_heading') }}</h2>
+    <p id="recording-status" class="muted">{{ t('student.status_not_sharing') }}</p>
     <video id="preview" autoplay muted playsinline></video>
+    <div>
+      <button id="stop-share" type="button" class="danger">{{ t('student.stop') }}</button>
+    </div>
   </div>
 
   <div id="student-messages"></div>
 </div>
 {% endblock %}
 {% block scripts %}
+<script id="i18n-strings" type="application/json">{{ js_strings|tojson }}</script>
 <script src="{{ url_for('static', filename='js/student.js') }}"></script>
 {% endblock %}

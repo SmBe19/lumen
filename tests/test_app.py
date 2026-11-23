@@ -42,6 +42,23 @@ def test_login_rejects_bad_password(client):
     assert b"Invalid username or password" in response.data
 
 
+def test_student_pages_are_translated(client, teacher):
+    exam = _create_exam(teacher)
+    teacher.post(
+        f"/teacher/exams/{exam['id']}/students/import",
+        data={"csv": "firstname\nJane\n"},
+        follow_redirects=True,
+    )
+    german = client.get("/", headers={"Accept-Language": "de-DE,de;q=0.9"})
+    assert "Einer Prüfung beitreten".encode() in german.data
+    french = client.get(
+        f"/exam/ABC123", headers={"Accept-Language": "fr-FR,fr;q=0.9"}
+    )
+    assert french.status_code == 200
+    assert "Choisis ton nom".encode() in french.data
+    assert b"step hidden" in french.data
+
+
 def test_create_import_and_config_pages(teacher):
     exam = _create_exam(teacher)
     csv = "firstname,lastname,displayname,class\nJane,Doe,,1a\nJohn,Smith,js,1b\n"
@@ -174,6 +191,81 @@ def test_manual_log_entry(teacher):
     assert any(entry["message"] == "left the room" for entry in logs)
 
 
+def test_default_interval_is_ten(teacher):
+    exam = _create_exam(teacher, interval="")
+    assert exam["interval"] == 10
+
+
+def test_import_without_valid_columns_reports_error(teacher):
+    exam = _create_exam(teacher)
+    response = teacher.post(
+        f"/teacher/exams/{exam['id']}/students/import",
+        data={"csv": "Jane,Doe\nJohn,Smith\n"},
+        follow_redirects=True,
+    )
+    assert b"No valid columns" in response.data
+    assert store.get_exam(exam["id"], force=True)["students"] == []
+
+
+def test_delete_single_student(teacher):
+    exam = _create_exam(teacher)
+    teacher.post(
+        f"/teacher/exams/{exam['id']}/students/import",
+        data={"csv": "firstname\nJane\nBob\n"},
+        follow_redirects=True,
+    )
+    store.save_screenshot(exam["id"], "Jane", b"pngdata")
+    response = teacher.post(
+        f"/teacher/exams/{exam['id']}/student/Jane/delete",
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    config = store.get_exam(exam["id"], force=True)
+    assert [s["name"] for s in config["students"]] == ["Bob"]
+    assert not store.screenshot_dir(exam["id"], "Jane").exists()
+
+
+def test_exam_key_lookup_cache_refreshes(teacher):
+    first = _create_exam(teacher, exam_key="AAA111")
+    assert store.get_exam_by_key("AAA111")["id"] == first["id"]
+    _create_exam(teacher, name="Second", exam_key="BBB222")
+    second = next(
+        exam for exam in store.list_exams(force=True)
+        if exam["exam_key"] == "BBB222"
+    )
+    assert store.get_exam_by_key("BBB222")["id"] == second["id"]
+
+
+def test_zip_includes_logs(teacher):
+    exam = _create_exam(teacher)
+    teacher.post(
+        f"/teacher/exams/{exam['id']}/students/import",
+        data={"csv": "firstname\nJane\n"},
+        follow_redirects=True,
+    )
+    store.append_log(exam["id"], "Jane", "note", "looked away")
+    response = teacher.get(f"/teacher/exams/{exam['id']}/student/Jane/download")
+    with zipfile.ZipFile(io.BytesIO(response.data)) as archive:
+        assert "Jane/log.jsonl" in archive.namelist()
+
+
+def test_monitor_issues_include_manual_notes(teacher):
+    exam = _create_exam(teacher)
+    teacher.post(
+        f"/teacher/exams/{exam['id']}/students/import",
+        data={"csv": "firstname\nJane\n"},
+        follow_redirects=True,
+    )
+    store.append_log(exam["id"], "Jane", "note", "manual entry")
+    payload = teacher.get(
+        f"/teacher/exams/{exam['id']}/data?since=0"
+    ).get_json()
+    assert any(
+        issue["event"] == "note" and issue["message"] == "manual entry"
+        for issue in payload["issues"]
+    )
+
+
 def test_zip_downloads_and_delete(teacher):
     exam = _create_exam(teacher)
     teacher.post(
@@ -186,7 +278,9 @@ def test_zip_downloads_and_delete(teacher):
     single = teacher.get(f"/teacher/exams/{exam['id']}/student/Jane/download")
     assert single.status_code == 200
     with zipfile.ZipFile(io.BytesIO(single.data)) as archive:
-        assert archive.namelist() == ["Jane/" + store.list_screenshots(exam["id"], "Jane")[0]["filename"]]
+        assert archive.namelist() == [
+            "Jane/" + store.list_screenshots(exam["id"], "Jane")[0]["filename"]
+        ]
 
     all_zip = teacher.get(f"/teacher/exams/{exam['id']}/download")
     with zipfile.ZipFile(io.BytesIO(all_zip.data)) as archive:

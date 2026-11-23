@@ -10,9 +10,9 @@ from . import store
 
 def _interval(exam: dict[str, Any]) -> float:
     try:
-        return max(float(exam.get("interval", 30)), 1.0)
+        return max(float(exam.get("interval", 10)), 1.0)
     except (TypeError, ValueError):
-        return 30.0
+        return 10.0
 
 
 def build_overview(exam: dict[str, Any], now: float | None = None) -> dict[str, Any]:

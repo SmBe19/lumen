@@ -37,7 +37,7 @@ def _clamp_interval(value: str) -> int:
     try:
         number = int(float(value))
     except (TypeError, ValueError):
-        return 30
+        return 10
     return max(1, min(number, 24 * 3600))
 
 
@@ -66,7 +66,7 @@ def exams():
 def create_exam():
     name = request.form.get("name", "").strip() or "Untitled exam"
     exam_key = request.form.get("exam_key", "").strip().upper()
-    interval = _clamp_interval(request.form.get("interval", "30"))
+    interval = _clamp_interval(request.form.get("interval", "10"))
     scale = _clamp_scale(request.form.get("scale", "0.5"))
     try:
         exam = store.create_exam(
@@ -138,13 +138,31 @@ def set_recording(exam_id: str):
 def import_students(exam_id: str):
     exam = _owned_exam(exam_id, force=True)
     csv_text = request.form.get("csv", "")
-    students = store.parse_student_csv(csv_text)
-    added = store.add_students(exam, students)
-    store.save_exam(exam)
+    try:
+        students = store.parse_student_csv(csv_text)
+    except ValueError as error:
+        flash(str(error), "error")
+        return redirect(url_for("teacher.exam_config", exam_id=exam_id) + "#students")
     if not students:
         flash("No valid students found in the pasted CSV.", "error")
-    else:
-        flash(f"Imported {added} student(s) ({len(students) - added} duplicates skipped).", "success")
+        return redirect(url_for("teacher.exam_config", exam_id=exam_id) + "#students")
+    added = store.add_students(exam, students)
+    store.save_exam(exam)
+    flash(
+        f"Imported {added} student(s) ({len(students) - added} duplicates skipped).",
+        "success",
+    )
+    return redirect(url_for("teacher.exam_config", exam_id=exam_id) + "#students")
+
+
+@bp.post("/exams/<exam_id>/student/<dirname>/delete")
+@auth.login_required
+def delete_student(exam_id: str, dirname: str):
+    exam = _owned_exam(exam_id, force=True)
+    if store.remove_student(exam, dirname) is None:
+        abort(404)
+    store.save_exam(exam)
+    flash("Student deleted.", "success")
     return redirect(url_for("teacher.exam_config", exam_id=exam_id) + "#students")
 
 
@@ -239,12 +257,14 @@ def _zip_students(exam: dict, students: list[dict]) -> io.BytesIO:
     exam_id = exam["id"]
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         for student in students:
-            directory = store.screenshot_dir(exam_id, student["dir"])
-            if not directory.is_dir():
-                continue
-            safe_name = store.clean_dirname(student["name"])
-            for path in sorted(directory.glob("*.png")):
-                archive.write(path, arcname=f"{safe_name}/{path.name}")
+            folder = student["dir"]
+            directory = store.screenshot_dir(exam_id, folder)
+            if directory.is_dir():
+                for path in sorted(directory.glob("*.png")):
+                    archive.write(path, arcname=f"{folder}/{path.name}")
+            log = store.log_path(exam_id, folder)
+            if log.exists():
+                archive.write(log, arcname=f"{folder}/log.jsonl")
     buffer.seek(0)
     return buffer
 

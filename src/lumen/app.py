@@ -5,9 +5,9 @@ from __future__ import annotations
 import os
 import secrets
 
-from flask import Flask
+from flask import Flask, request
 
-from . import auth, store
+from . import auth, i18n, store
 
 
 def _secret_key() -> str:
@@ -46,6 +46,15 @@ def create_app() -> Flask:
     app.register_blueprint(teacher_bp)
 
     app.before_request(auth.load_logged_in_user)
+
+    @app.context_processor
+    def inject_i18n():
+        lang = i18n.negotiate(request.accept_languages)
+        return {
+            "lang": lang,
+            "t": lambda key, **kw: i18n.t(lang, key, **kw),
+            "js_strings": i18n.student_strings(lang),
+        }
 
     @app.template_filter("dt")
     def format_datetime(value):

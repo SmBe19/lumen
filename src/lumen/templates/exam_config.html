@@ -57,7 +57,11 @@
   <div class="field">
     <label for="csv">Import from CSV (paste)</label>
     <textarea id="csv" name="csv" placeholder="firstname,lastname,displayname,class&#10;Jane,Doe,,1a&#10;John,,jd,1b"></textarea>
-    <div class="hint">Columns: firstname, lastname, displayname, class. At least one name column is required.</div>
+    <div class="hint">
+      A header row is required. Columns: firstname (vorname), lastname (name),
+      displayname, class (klasse, kl). Matching is case insensitive. At least
+      one name column is required.
+    </div>
   </div>
   <button class="primary" type="submit">Import students</button>
 </form>
@@ -71,7 +75,7 @@
 </div>
 <table>
   <thead>
-    <tr><th>Name</th><th>Directory</th><th>Screenshots</th><th></th></tr>
+    <tr><th>Name</th><th>Directory</th><th>Screenshots</th><th>Actions</th></tr>
   </thead>
   <tbody>
   {% for student in exam.students %}
@@ -83,6 +87,11 @@
       </td>
       <td>
         <a href="{{ url_for('teacher.download_student', exam_id=exam.id, dirname=student.dir) }}">ZIP</a>
+        <form class="inline" method="post"
+              action="{{ url_for('teacher.delete_student', exam_id=exam.id, dirname=student.dir) }}"
+              onsubmit="return confirm('Delete this student and all of their screenshots and logs?');">
+          <button class="danger" type="submit">Delete</button>
+        </form>
       </td>
     </tr>
   {% endfor %}

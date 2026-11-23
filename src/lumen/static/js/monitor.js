@@ -16,9 +16,12 @@
   const elIssues = document.getElementById("issues");
   const elUpdated = document.getElementById("updated");
   const btnNotify = document.getElementById("enable-notifications");
+  const overlay = document.getElementById("overlay");
+  const overlayImage = document.getElementById("overlay-image");
 
   let lastIssueTs = 0;
   let issueCount = 0;
+  let primed = false;
 
   function notify(title, body) {
     if (!("Notification" in window)) return;
@@ -42,6 +45,19 @@
         btnNotify.textContent = "Notifications unsupported";
       }
     });
+  }
+
+  if (overlay) {
+    overlay.addEventListener("click", function () {
+      overlay.classList.add("hidden");
+      if (overlayImage) overlayImage.src = "";
+    });
+  }
+
+  function showOverlay(src) {
+    if (!overlay || !overlayImage) return;
+    overlayImage.src = src;
+    overlay.classList.remove("hidden");
   }
 
   function fmtSeconds(value) {
@@ -106,9 +122,13 @@
       if (student.inactive) card.className += " inactive";
       if (student.duplicate_warning) card.className += " duplicate";
 
+      // The name links to the student details.
       const name = document.createElement("div");
       name.className = "name";
-      name.textContent = student.name;
+      const link = document.createElement("a");
+      link.href = detailUrl(student.dir);
+      link.textContent = student.name;
+      name.appendChild(link);
       if (student.inactive) {
         const badge = document.createElement("span");
         badge.className = "badge warn";
@@ -123,14 +143,14 @@
       }
       card.appendChild(name);
 
+      // Clicking the screenshot opens a large overlay.
       if (student.latest) {
-        const link = document.createElement("a");
-        link.href = detailUrl(student.dir);
+        const src = imageUrl(student.dir, student.latest.filename);
         const img = document.createElement("img");
-        img.src = imageUrl(student.dir, student.latest.filename);
+        img.src = src;
         img.alt = student.name + " latest screenshot";
-        link.appendChild(img);
-        card.appendChild(link);
+        img.addEventListener("click", function () { showOverlay(src); });
+        card.appendChild(img);
       } else {
         const placeholder = document.createElement("div");
         placeholder.className = "noimg";
@@ -155,7 +175,7 @@
     return div.innerHTML;
   }
 
-  function addIssues(issues) {
+  function addIssues(issues, recording) {
     if (!issues || !issues.length) return;
     if (issueCount === 0) elIssues.innerHTML = "";
     issues.forEach(function (issue) {
@@ -164,11 +184,17 @@
       issueCount += 1;
       const li = document.createElement("li");
       const time = new Date(issue.ts * 1000).toLocaleTimeString();
-      const label = issue.event === "stop_sharing" ? "stopped sharing" : "error";
+      let label = "error";
+      if (issue.event === "stop_sharing") label = "stopped sharing";
+      else if (issue.event === "note") label = "note";
       li.textContent =
         time + " - " + issue.dir + " " + label + (issue.message ? ": " + issue.message : "");
       elIssues.insertBefore(li, elIssues.firstChild);
-      notify("Lumen: " + issue.dir, label + (issue.message ? ": " + issue.message : ""));
+      // Only notify for issues that arrive while recording is active, and
+      // only once per issue (not again every time the page is opened).
+      if (primed && recording) {
+        notify("Lumen: " + issue.dir, label + (issue.message ? ": " + issue.message : ""));
+      }
     });
   }
 
@@ -183,7 +209,8 @@
       })
       .then(function (data) {
         render(data);
-        addIssues(data.issues);
+        addIssues(data.issues, data.recording);
+        primed = true;
       })
       .catch(function (error) {
         elUpdated.textContent = "update failed: " + error.message;
