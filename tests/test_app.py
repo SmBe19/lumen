@@ -55,8 +55,24 @@ def test_student_pages_are_translated(client, teacher):
         f"/exam/ABC123", headers={"Accept-Language": "fr-FR,fr;q=0.9"}
     )
     assert french.status_code == 200
-    assert "Choisis ton nom".encode() in french.data
+    assert "Choisissez votre nom".encode() in french.data
     assert b"step hidden" in french.data
+
+
+def test_semicolon_csv_with_extra_columns(teacher):
+    exam = _create_exam(teacher)
+    csv = (
+        "Name;Vorname;Klasse;Adresse;PLZ;Ort;EMail;Telefon\n"
+        'User;Test;1A;"Beispielstrasse 42";4200;Bern;test.user@example.com;\n'
+    )
+    response = teacher.post(
+        f"/teacher/exams/{exam['id']}/students/import",
+        data={"csv": csv},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    config = store.get_exam(exam["id"], force=True)
+    assert [s["name"] for s in config["students"]] == ["Test User (1A)"]
 
 
 def test_create_import_and_config_pages(teacher):

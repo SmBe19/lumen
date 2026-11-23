@@ -48,6 +48,14 @@ def test_parse_student_csv_without_valid_columns_raises():
         store.parse_student_csv("Jane,Doe\nJohn,Smith\n")
 
 
+def test_parse_student_csv_with_semicolons_and_extra_columns():
+    students = store.parse_student_csv(
+        "Name;Vorname;Klasse;Adresse;PLZ;Ort;EMail;Telefon\n"
+        'User;Test;1A;"Beispielstrasse 42";4200;Bern;test.user@example.com;\n'
+    )
+    assert [s["name"] for s in students] == ["Test User (1A)"]
+
+
 def test_parse_student_csv_lastname_only():
     students = store.parse_student_csv("lastname\nDoe\n")
     assert [s["name"] for s in students] == ["Doe"]

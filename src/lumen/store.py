@@ -361,7 +361,13 @@ def parse_student_csv(text: str) -> list[dict[str, str]]:
     if not text:
         return []
 
-    reader = csv.reader(io.StringIO(text))
+    # Detect the delimiter (comma, semicolon or tab) instead of assuming a
+    # comma, so exports from spreadsheet software also import correctly.
+    try:
+        dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;\t")
+    except csv.Error:
+        dialect = csv.excel
+    reader = csv.reader(io.StringIO(text), dialect)
     rows = [row for row in reader if any(cell.strip() for cell in row)]
     if not rows:
         return []

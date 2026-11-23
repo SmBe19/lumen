@@ -133,8 +133,9 @@
       statusText.textContent = _("js.status_recording_ok");
       statusText.className = "ok-text";
     } else {
-      statusText.textContent = _("js.status_recording_stopped");
-      statusText.className = "error-text";
+      // Sharing works, the teacher just has not started the recording yet.
+      statusText.textContent = _("js.status_recording_ready");
+      statusText.className = "muted";
     }
   }
 
@@ -188,6 +189,8 @@
     if (preview) preview.srcObject = stream;
     track.addEventListener("ended", onShareEnded);
 
+    // Clear any message left over from a previous sharing session.
+    showMessage("");
     showStep(stepStatus);
     setStatus();
     sendLog("start_sharing", surface || "unknown displaySurface");
@@ -204,9 +207,15 @@
     if (preview) preview.srcObject = null;
     setStatus();
     showStep(stepShare);
-    showMessage(_("js.share_ended"), "error");
-    notify(_("js.notify_stopped_title"), _("js.notify_stopped_body"));
-    sendLog("stop_sharing", "screen share track ended");
+    // Only alert when the exam is actually being recorded. If it is not, the
+    // student simply returns to the sharing step.
+    if (state.recording) {
+      showMessage(_("js.share_ended"), "error");
+      notify(_("js.notify_stopped_title"), _("js.notify_stopped_body"));
+      sendLog("stop_sharing", "");
+    } else {
+      showMessage("");
+    }
   }
 
   function stopSharing() {
