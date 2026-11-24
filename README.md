@@ -42,8 +42,14 @@ For production (e.g. on a Herokuish based platform) a `Procfile` is included
 that starts the app with [gunicorn](https://gunicorn.org/):
 
 ```
-web: gunicorn --bind 0.0.0.0:$PORT 'lumen.app:create_app()'
+web: gunicorn -k gthread --threads 8 --bind 0.0.0.0:$PORT 'lumen.app:create_app()'
 ```
+
+The threaded (`gthread`) worker is used because most work is blocking disk I/O
+(saving and serving screenshots, scanning directories, zipping downloads), which
+threads can run concurrently. Keep it to a single worker process: the on-disk
+caches in `lumen.store` are per-process, so additional worker processes would
+serve stale exam config (e.g. the `recording` flag) for up to 30 seconds.
 
 Remember that browsers only allow `getDisplayMedia` in a secure context, so in
 production serve Lumen over HTTPS (or use `localhost` for testing).
